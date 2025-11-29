@@ -28,3 +28,4 @@ build/
 tests/
 Dockerfile
 docker-compose.yml
+deployment_guide.md
