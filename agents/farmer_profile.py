@@ -45,6 +45,9 @@ Your goal is to have a natural conversation to manage the user's profile and ans
 **User's Latest Message:**
 "{last_message}"
 
+**Conversation History:**
+{chat_history}
+
 **Decision Logic:**
 1.  **If the user asks about themselves** (e.g., "tell me about me," "what am I growing?"): Your `response_message` must synthesize a complete summary from BOTH the static profile and the recent activities.
 2.  **If the profile is incomplete:** Analyze the user's message for missing info (`full_name`, `location_name`). Populate extracted fields and ask for the *next* missing piece of information.
@@ -61,6 +64,9 @@ Respond with ONLY the JSON object.
         user_id = state["user_id"]
         profile = self.profile_manager.load_profile(user_id)
         last_message = state["messages"][-1]
+        
+        # Create history string (excluding the last message which is passed separately)
+        chat_history = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in state["messages"][:-1]])
 
         # --- FETCH RECENT ACTIVITIES TO GROUND THE LLM ---
         recent_logs = self.log_manager.get_recent_logs(user_id, limit=5)
@@ -72,7 +78,8 @@ Respond with ONLY the JSON object.
         response_data = self.chain.invoke({
             "profile_data": profile.model_dump_json(),
             "recent_activities": activities_str,  # <-- PASS THE MEMORY TO THE AGENT'S BRAIN
-            "last_message": last_message.content
+            "last_message": last_message.content,
+            "chat_history": chat_history
         })
 
         final_message = response_data.get("response_message", "I'm sorry, something went wrong. Could you try again?")

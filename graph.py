@@ -9,7 +9,9 @@ from agents.supervisor import Supervisor
 from agents.farmer_profile import FarmerProfileAgent
 from agents.weather import WeatherAgent
 from agents.agro_advisory import AgroAdvisoryAgent
+
 from agents.knowledge_support import KnowledgeSupportAgent
+from agents.market_intelligence import MarketIntelligenceAgent
 from agents.formatter import FormatterAgent
 from core.profile_manager import ProfileManager
 from core.farm_log_manager import FarmLogManager
@@ -34,6 +36,7 @@ weather_agent_node = WeatherAgent(llm, profile_manager, log_manager)
 agro_advisory_node = AgroAdvisoryAgent(llm, log_manager)
 # --- FIX: Provide the log_manager to the KnowledgeSupportAgent ---
 knowledge_agent_node = KnowledgeSupportAgent(llm, profile_manager, log_manager)
+market_agent_node = MarketIntelligenceAgent(llm)
 formatter_node = FormatterAgent(llm, profile_manager)
 
 # --- GRAPH WIRING ---
@@ -46,8 +49,7 @@ workflow.add_node("agro_advisory", agro_advisory_node.invoke)
 workflow.add_node("weather", weather_agent_node.invoke)
 workflow.add_node("knowledge_support", knowledge_agent_node.invoke)
 workflow.add_node("formatter", formatter_node.invoke)
-workflow.add_node("market_intelligence", lambda state: {"messages": [AIMessage(content="Market agent is under construction.")]})
-
+workflow.add_node("market_intelligence", market_agent_node.invoke)
 
 # --- ROUTING LOGIC ---
 def supervisor_router(state: AgentState):

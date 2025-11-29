@@ -6,7 +6,7 @@ from passlib.context import CryptContext
 from .config import settings
 from .models import FarmerProfile  # <-- IMPORT FROM new models.py
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 class ProfileManager:
     """Handles user creation, authentication, and profile management in MongoDB."""
