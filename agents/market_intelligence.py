@@ -13,6 +13,7 @@ from google.adk import Agent, Runner
 from google.adk.tools import google_search
 from google.adk.sessions import InMemorySessionService
 from google.adk.flows.llm_flows.contents import types as content_types
+from google.adk.models.lite_llm import LiteLlm
 
 load_dotenv()
 
@@ -27,7 +28,8 @@ class MarketIntelligenceAgent:
         # We use a unique session ID per agent instance or handle it in invoke
         self.adk_agent = Agent(
             name="market_agent",
-            model="gemini-2.0-flash-lite",
+            # Openai models are not supported for google search tool and other built-in tools , so use gemini models to access it !
+            model=LiteLlm("openai/gpt-4o-mini"),
             tools=[google_search],
             instruction="""You are a local market expert. Your goal is to find the most recent and specific market prices for crops in the specified location.
             - Prioritize "mandi" rates and daily market reports.

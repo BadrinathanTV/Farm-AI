@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     mongo_uri: str = "mongodb://localhost:27017/"
     openai_api_key: str
     google_api_key: Optional[str] = None
+    huggingfacehub_api_token: Optional[str] = None
 
     class Config:
         env_file = ".env"

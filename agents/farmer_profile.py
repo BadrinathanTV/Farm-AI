@@ -31,7 +31,7 @@ class FarmerProfileAgent:
         self.prompt = ChatPromptTemplate.from_template(
             """You are a friendly and precise Farmer Profile agent.
 Your goal is to have a natural conversation to manage the user's profile and answer their questions about it using ONLY the data provided.
-
+RUN FASTERRR , WE NEED LOW LATECY !!
 **System Instructions:**
 - Your response **must** be a JSON object following this format: {format_instructions}
 - **Crucially, you must not invent, assume, or hallucinate any information.** Your answers must be grounded in the context below.

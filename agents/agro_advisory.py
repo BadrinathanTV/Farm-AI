@@ -30,7 +30,7 @@ class AgroAdvisoryAgent:
         self.prompt = ChatPromptTemplate.from_template(
             """You are a data extraction specialist with perfect understanding of time.
 Your job is to analyze a user's description of a farming activity and extract its details, including the correct date.
-
+RUN FASTERRR , WE NEED LOW LATECY !!
 **Current Date:** {current_date}
 
 **User's description of activity:** "{message}"

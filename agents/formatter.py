@@ -13,7 +13,7 @@ class FormatterAgent:
         self.prompt = ChatPromptTemplate.from_template(
             """You are the friendly, final voice of a Farm AI assistant.
 Your user is a farmer named {farmer_name}.
-
+RUN FASTERRR , WE NEED LOW LATECY !!
 **Your Task:**
 Your job is to take the raw output from an internal expert agent and rephrase it into a natural, helpful, and **contextually appropriate** final answer.
 

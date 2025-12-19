@@ -10,7 +10,8 @@ AGENT_DESCRIPTIONS = {
     "agro_advisory": "Handles conversations about specific farming activities (planting, watering, etc.), logs these activities, and provides advice.",
     "weather": "Provides personalized weather forecasts and farming advice based on the weather.",
     "market_intelligence": "For questions about market prices, government schemes, and subsidies.",
-    "knowledge_support": "For all other general farming questions, best practices, pest control, crop diseases, etc."
+    "knowledge_support": "For all other general farming questions, best practices, pest control, etc.",
+    "plant_disease": "Analyzes images or descriptions of sick plants to diagnose diseases and recommend treatments."
 }
 
 class Supervisor:
@@ -31,7 +32,9 @@ class Supervisor:
 2.  If the user asks a question about themselves, their profile, or the information the AI knows about them (e.g., "tell me about me," "what's my location," "do you know my name"), you **must** route to `farmer_profile`.
 3.  If the user describes a farming task they performed (e.g., "I planted rice"), route to `agro_advisory`.
 4.  If the user asks about weather, route to `weather`.
-5.  For all other farming questions, route to `knowledge_support`.
+5.  If the user asks about a plant disease OR uploads an image of a plant, route to `plant_disease`.
+6.  For all other farming questions, route to `knowledge_support`.
+
 
 Based on the rules, the user's profile status, and their last message, which agent should be called? Respond with only the agent's name.
 

@@ -12,6 +12,7 @@ from agents.agro_advisory import AgroAdvisoryAgent
 
 from agents.knowledge_support import KnowledgeSupportAgent
 from agents.market_intelligence import MarketIntelligenceAgent
+from agents.plant_disease import PlantDiseaseAgent
 from agents.formatter import FormatterAgent
 from core.profile_manager import ProfileManager
 from core.farm_log_manager import FarmLogManager
@@ -28,6 +29,7 @@ class AgentState(TypedDict):
     user_id: str
     next_agent: str
     detected_activity: Optional[str]
+    image_data: Optional[bytes]
 
 # --- AGENT NODE DEFINITIONS ---
 supervisor_node = Supervisor(llm, profile_manager)
@@ -37,6 +39,7 @@ agro_advisory_node = AgroAdvisoryAgent(llm, log_manager)
 # --- FIX: Provide the log_manager to the KnowledgeSupportAgent ---
 knowledge_agent_node = KnowledgeSupportAgent(llm, profile_manager, log_manager)
 market_agent_node = MarketIntelligenceAgent(llm)
+plant_disease_node = PlantDiseaseAgent(llm)
 formatter_node = FormatterAgent(llm, profile_manager)
 
 # --- GRAPH WIRING ---
@@ -48,8 +51,9 @@ workflow.add_node("farmer_profile", profile_agent_node.invoke)
 workflow.add_node("agro_advisory", agro_advisory_node.invoke)
 workflow.add_node("weather", weather_agent_node.invoke)
 workflow.add_node("knowledge_support", knowledge_agent_node.invoke)
-workflow.add_node("formatter", formatter_node.invoke)
 workflow.add_node("market_intelligence", market_agent_node.invoke)
+workflow.add_node("plant_disease", plant_disease_node.invoke)
+workflow.add_node("formatter", formatter_node.invoke)
 
 # --- ROUTING LOGIC ---
 def supervisor_router(state: AgentState):
@@ -72,6 +76,7 @@ workflow.add_conditional_edges("supervisor", supervisor_router, {
     "weather": "weather",
     "knowledge_support": "knowledge_support",
     "market_intelligence": "market_intelligence",
+    "plant_disease": "plant_disease",
     END: END
 })
 
@@ -81,9 +86,9 @@ workflow.add_edge("agro_advisory", "formatter")
 workflow.add_edge("weather", "formatter")
 workflow.add_edge("knowledge_support", "formatter")
 workflow.add_edge("market_intelligence", "formatter")
+workflow.add_edge("plant_disease", "formatter")
 
 workflow.add_edge("formatter", END)
 
 app = workflow.compile()
 print("---GRAPH COMPILED: KNOWLEDGE AGENT IS NOW DATABASE-CONNECTED---")
-

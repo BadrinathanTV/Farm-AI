@@ -23,6 +23,10 @@ def initialize_session_state():
     if "chat_sessions" not in st.session_state:
         st.session_state.chat_sessions = []
     
+    # Session state for managing file uploader reset
+    if "uploader_key" not in st.session_state:
+        st.session_state.uploader_key = 0
+    
     # Initialize managers once
     if "profile_manager" not in st.session_state:
         st.session_state.profile_manager = ProfileManager()
@@ -101,24 +105,62 @@ def show_chat_interface():
         with st.chat_message(message.type, avatar="🧑‍💻" if message.type == "human" else "👨‍🌾"):
             st.markdown(message.content)
 
-    # Handle new user input
-    if prompt := st.chat_input("What would you like to ask?"):
-        human_message = HumanMessage(content=prompt)
-        st.session_state.messages.append(human_message)
+    # --- Input Area ---
+    # We use a popover for image upload to mimic a "paperclip" attachment style
+    with st.popover("📎 Add Image", help="Upload a plant image for diagnosis"):
+        # Use a dynamic key to allow clearing the uploader
+        uploaded_file = st.file_uploader(
+            "Choose an image...", 
+            type=["jpg", "jpeg", "png"], 
+            key=f"uploader_{st.session_state.uploader_key}"
+        )
+
+    # Chat Input - Always rendered
+    if prompt := st.chat_input("Ask a question or describe your plant issue..."):
+        user_input = prompt
+        image_bytes = None
+        
+        # Check for uploaded image
+        if uploaded_file:
+            image_bytes = uploaded_file.getvalue()
+            # Append a note about the image to the user input if not already explicit
+            if "image" not in user_input.lower():
+                user_input += " [Image Uploaded]"
+
+        # Display User Message immediately
         with st.chat_message("human", avatar="🧑‍💻"):
+            if image_bytes:
+                st.image(uploaded_file, caption="Uploaded Image", width=300)
             st.markdown(prompt)
+
+        # Add to history
+        st.session_state.messages.append(HumanMessage(content=user_input))
 
         # Invoke graph and display response
         with st.chat_message("ai", avatar="👨‍🌾"):
             with st.spinner("Assistant is thinking..."):
-                payload = {"user_id": st.session_state.user_id, "messages": st.session_state.messages}
-                response = app.invoke(payload)
-                ai_response = response["messages"][-1]
-                st.markdown(ai_response.content)
-                st.session_state.messages.append(ai_response)
-        
+                payload = {
+                    "user_id": st.session_state.user_id, 
+                    "messages": st.session_state.messages,
+                    "image_data": image_bytes 
+                }
+                
+                try:
+                    response = app.invoke(payload)
+                    ai_response = response["messages"][-1]
+                    st.markdown(ai_response.content)
+                    st.session_state.messages.append(ai_response)
+                except Exception as e:
+                    st.error(f"An error occurred: {e}")
+
         # Save the updated history
         st.session_state.chat_history_manager.save_history(st.session_state.user_id, st.session_state.chat_id, st.session_state.messages)
+        
+        # RESET UPLOADER: Increment key to clear the file uploader for the next turn
+        if uploaded_file:
+            st.session_state.uploader_key += 1
+            st.rerun()
+
 
 # --- Application Entry Point ---
 initialize_session_state()

@@ -17,7 +17,7 @@ class KnowledgeSupportAgent:
         self.prompt = ChatPromptTemplate.from_template(
             """You are a helpful and highly analytical AI assistant.
 Your primary function is to answer the user's question based ONLY on the provided context.
-
+RUN FASTERRR , WE NEED LOW LATECY !!
 **CONTEXT:**
 1.  **Farmer's Name:** {farmer_name}
 2.  **Current Date:** {current_date}
