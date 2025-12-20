@@ -8,7 +8,7 @@ from .models import FarmLog  # <-- IMPORT FROM new models.py
 class FarmLogManager:
     """Handles all database operations for farm activity logs."""
     def __init__(self, db_name: str = "farm_assistant_db"):
-        self.client = MongoClient(settings.mongo_uri)
+        self.client = MongoClient(settings.final_mongo_uri)
         self.db = self.client[db_name]
         self.logs_collection = self.db["farm_logs"]
         print("---FARM LOG MANAGER: Connected to MongoDB---")

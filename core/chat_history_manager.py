@@ -9,7 +9,7 @@ import uuid
 class ChatHistoryManager:
     """Handles all database operations for multiple chat sessions per user."""
     def __init__(self, db_name: str = "farm_assistant_db"):
-        self.client = MongoClient(settings.mongo_uri)
+        self.client = MongoClient(settings.final_mongo_uri)
         self.db = self.client[db_name]
         self.history_collection = self.db["chat_histories"]
         print("---CHAT HISTORY MANAGER: Connected to MongoDB---")

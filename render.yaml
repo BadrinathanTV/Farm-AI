@@ -13,7 +13,12 @@ services:
         sync: false
       - key: HUGGINGFACEHUB_API_TOKEN
         sync: false
-      - key: MONGO_URI
+      - key: MONGO_USER
         sync: false
-        # Note: You will need a cloud MongoDB (e.g., MongoDB Atlas) for production. 
-        # Localhost won't work on Render.
+      - key: MONGO_PASSWORD
+        sync: false
+      - key: MONGO_HOST
+        sync: false
+      - key: MONGO_PORT
+        sync: false
+        value: "27017"

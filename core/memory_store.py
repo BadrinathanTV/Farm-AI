@@ -6,7 +6,7 @@ from .models import MemoryEntry
 class MemoryStore:
     """Handles all database operations for natural language memories."""
     def __init__(self, db_name: str = "farm_assistant_db"):
-        self.client = MongoClient(settings.mongo_uri)
+        self.client = MongoClient(settings.final_mongo_uri)
         self.db = self.client[db_name]
         self.memory_collection = self.db["memories"]
         # Ensure index on user_id and timestamp
