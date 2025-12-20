@@ -26,9 +26,7 @@ build/
 
 # Exclusions
 
-Dockerfile
 docker-compose.yml
-deployment_guide.md
 test_hf_api.py
 
 # New Exclusions
