@@ -1,6 +1,7 @@
 # agents/market_intelligence.py
 
 import uuid
+from datetime import datetime
 from dotenv import load_dotenv
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import ChatPromptTemplate
@@ -8,12 +9,7 @@ from langchain_core.output_parsers.json import JsonOutputParser
 from langchain_core.messages import AIMessage
 from pydantic import BaseModel, Field
 
-# Google ADK imports
-from google.adk import Agent, Runner
-from google.adk.tools import google_search
-from google.adk.sessions import InMemorySessionService
-from google.adk.flows.llm_flows.contents import types as content_types
-from google.adk.models.lite_llm import LiteLlm
+from core.mcp_wrapper import MCPWrapper
 
 from core.memory_service import MemoryService
 
@@ -28,23 +24,26 @@ class MarketIntelligenceAgent:
         self.llm = llm
         self.memory = memory_service
         
-        # Configure ADK Agent
-        self.adk_agent = Agent(
-            name="market_agent",
-            model=LiteLlm("openai/gpt-4o-mini"),
-            tools=[google_search],
-            instruction="""You are a local market expert. Your goal is to find the most recent and specific market prices for crops in the specified location.
-            - Prioritize "mandi" rates and daily market reports.
-            - If exact local data is missing, find the nearest major market data.
-            - Always mention the date of the price information.
-            - Be concise and direct."""
+        # Configure MCP Wrapper for DuckDuckGo (SSE/HTTP)
+        self.mcp = MCPWrapper(server_url="http://localhost:8000/sse")
+        
+        # Summary Chain to format the search results
+        self.summary_prompt = ChatPromptTemplate.from_template(
+            """You are a helpful market assistant.
+            The user asked: "{query}"
+            Current Date: {current_date}
+            
+            Here are the search results from DuckDuckGo:
+            {search_results}
+            
+            Please summarize these results into a clear, helpful answer for the farmer.
+            - **CRITICAL:** Only provide prices that are from {current_date} or very recent (last 2-3 days).
+            - If the data is old (e.g., from last year or months ago), EXPLICITLY state that "Current prices are not available, but here is older data...".
+            - Focus on finding the price if available.
+            - Cite the source links if useful.
+            """
         )
-        self.session_service = InMemorySessionService()
-        self.runner = Runner(
-            agent=self.adk_agent, 
-            session_service=self.session_service, 
-            app_name="farm_ai"
-        )
+        self.summary_chain = self.summary_prompt | self.llm
 
         class MarketQuery(BaseModel):
             crop: str = Field(description="The crop the user is asking about. If user says 'my crops', use the active crops from context.")
@@ -86,50 +85,72 @@ class MarketIntelligenceAgent:
             crop = query_data["crop"]
             location = query_data["location"]
             
-            # Construct query for ADK Agent
-            search_query = f"latest market price of {crop} in {location} today mandi rates"
+            # Construct query for search with dynamic date (Keyword optimized)
+            today_str = datetime.now().strftime("%d %B %Y")
+            search_query = f"{crop} price {location} {today_str} mandi rates"
             
-            session_id = str(uuid.uuid4())
-            adk_user_id = "farm_ai_user"
+            # Execute Search via MCP
+            print(f"--- MARKETS: Searching for '{search_query}' ---")
+            search_results_str = self.mcp.execute_tool("web_search", {"query": search_query})
             
-            self.session_service.create_session_sync(
-                session_id=session_id, 
-                user_id=adk_user_id,
-                app_name="farm_ai"
-            )
-            
-            adk_message = content_types.Content(
-                role='user', 
-                parts=[content_types.Part(text=search_query)]
-            )
-            
-            response_text = ""
-            events = self.runner.run(
-                user_id=adk_user_id,
-                session_id=session_id,
-                new_message=adk_message
-            )
-            
-            for event in events:
-                if hasattr(event, 'content') and event.content:
-                    content = event.content
-                    if hasattr(content, 'role') and content.role == 'model':
-                        if hasattr(content, 'parts'):
-                            for part in content.parts:
-                                if hasattr(part, 'text') and part.text:
-                                    response_text += part.text
+            # --- SCRAPING LOGIC ---
+            top_content = ""
+            try:
+                # Extract all links using regex
+                import re
+                # Pattern to find all links in the formatted string "Link: (url)"
+                links = re.findall(r"Link: (https?://\S+)", search_results_str)
+                
+                # Try scraping up to 3 unique links
+                unique_links = []
+                for link in links:
+                    if link not in unique_links:
+                        unique_links.append(link)
+                
+                max_scrapes = 3
+                links_to_try = unique_links[:max_scrapes]
+                
+                scraping_results = []
+                
+                print(f"--- MARKETS: Found {len(unique_links)} links. Trying top {len(links_to_try)}... ---")
+                
+                for i, link in enumerate(links_to_try):
+                    print(f"--- MARKETS: Fetching result {i+1}/{len(links_to_try)}: '{link}' ---")
+                    try:
+                        content = self.mcp.execute_tool("fetch_page", {"url": link})
+                        
+                        # Check if content indicates an error (the tool returns error strings on exception)
+                        if content and "Failed to fetch page" not in content:
+                            scraping_results.append(f"\n\n--- Content from {link} ---\n{content}\n")
+                            # If we have a good result, we might not need many more, but let's get up to 2 for robustness
+                            if len(scraping_results) >= 2:
+                                break
+                        else:
+                            print(f"--- MARKETS: Failed to fetch {link} (Tool returned error) ---")
+                            
+                    except Exception as e:
+                        print(f"--- MARKETS: Error fetching {link}: {e} ---")
+                
+                if scraping_results:
+                    top_content = "".join(scraping_results)
+                else:
+                    print("--- MARKETS: All scraping attempts failed or no links found ---")
 
-            if not response_text:
-                response_text = "I searched but couldn't find specific market data."
-
-            final_response = (
-                f"**Market Report for {crop} in {location}:**\n\n"
-                f"{response_text}\n\n"
-                "*(Source: Google Search via ADK)*"
-            )
+            except Exception as e:
+                print(f"--- MARKETS SCRAPE ERROR: {e} ---")
+            
+            # Summarize with LLM
+            final_response_msg = self.summary_chain.invoke({
+                "query": search_query,
+                "search_results": search_results_str + top_content,
+                "current_date": today_str
+            })
+            
+            final_response = final_response_msg.content + "\n\n*(Source: DuckDuckGo via MCP)*"
             
             return {"messages": [AIMessage(content=final_response)]}
             
         except Exception as e:
             print(f"Error in Market Agent: {e}")
             return {"messages": [AIMessage(content=f"I couldn't fetch the market data right now. Error: {e}")]}
+

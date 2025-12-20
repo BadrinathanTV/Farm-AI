@@ -48,7 +48,7 @@ Respond naturally:
             "farmer_name": ctx["farmer_name"],
             "active_crops": ctx["active_crops"],
             "current_date": ctx["current_date"],
-            "recent_activities": ctx["recent_activities"],
+            "recent_activities": ctx.get("memory_narrative", "No recent activities."),
             "chat_history": history_str,
             "question": last_message.content
         })
