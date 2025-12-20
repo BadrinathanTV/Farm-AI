@@ -20,5 +20,4 @@ services:
       - key: MONGO_HOST
         sync: false
       - key: MONGO_PORT
-        sync: false
         value: "27017"
