@@ -19,8 +19,8 @@ class PlantDiseaseAgent:
     def __init__(self, llm: BaseLanguageModel):
         self.llm = llm
         
-        # Initialize HF Client
-        self.hf_token = os.getenv("HUGGINGFACEHUB_API_TOKEN")
+        # Initialize HF Client using centralized settings
+        self.hf_token = settings.huggingfacehub_api_token
         self.repo_id = "linkanjarad/mobilenet_v2_1.0_224-plant-disease-identification"
         
         # Initialize the InferenceClient with the token

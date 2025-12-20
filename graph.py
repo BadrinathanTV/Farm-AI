@@ -13,15 +13,20 @@ from agents.agro_advisory import AgroAdvisoryAgent
 from agents.knowledge_support import KnowledgeSupportAgent
 from agents.market_intelligence import MarketIntelligenceAgent
 from agents.plant_disease import PlantDiseaseAgent
-from agents.formatter import FormatterAgent
+# Formatter agent removed for latency optimization
 from core.profile_manager import ProfileManager
 from core.farm_log_manager import FarmLogManager
+from core.memory_service import MemoryService
+from core.memory_store import MemoryStore
 from core.config import settings
 
 # --- INITIALIZE CORE COMPONENTS ---
-llm = ChatOpenAI(model="gpt-4o", api_key=settings.openai_api_key)
+# OPTIMIZATION: Use gpt-4o-mini for faster response times
+llm = ChatOpenAI(model="gpt-4o-mini", api_key=settings.openai_api_key)
 profile_manager = ProfileManager()
 log_manager = FarmLogManager()
+memory_store = MemoryStore()
+memory_service = MemoryService(profile_manager, memory_store)
 
 # --- AGENT STATE ---
 class AgentState(TypedDict):
@@ -33,14 +38,12 @@ class AgentState(TypedDict):
 
 # --- AGENT NODE DEFINITIONS ---
 supervisor_node = Supervisor(llm, profile_manager)
-profile_agent_node = FarmerProfileAgent(llm, profile_manager, log_manager)
-weather_agent_node = WeatherAgent(llm, profile_manager, log_manager)
+profile_agent_node = FarmerProfileAgent(llm, profile_manager, memory_store)
+weather_agent_node = WeatherAgent(llm, memory_service)
 agro_advisory_node = AgroAdvisoryAgent(llm, log_manager)
-# --- FIX: Provide the log_manager to the KnowledgeSupportAgent ---
-knowledge_agent_node = KnowledgeSupportAgent(llm, profile_manager, log_manager)
-market_agent_node = MarketIntelligenceAgent(llm)
+knowledge_agent_node = KnowledgeSupportAgent(llm, memory_service)
+market_agent_node = MarketIntelligenceAgent(llm, memory_service)
 plant_disease_node = PlantDiseaseAgent(llm)
-formatter_node = FormatterAgent(llm, profile_manager)
 
 # --- GRAPH WIRING ---
 workflow = StateGraph(AgentState)
@@ -53,20 +56,19 @@ workflow.add_node("weather", weather_agent_node.invoke)
 workflow.add_node("knowledge_support", knowledge_agent_node.invoke)
 workflow.add_node("market_intelligence", market_agent_node.invoke)
 workflow.add_node("plant_disease", plant_disease_node.invoke)
-workflow.add_node("formatter", formatter_node.invoke)
 
 # --- ROUTING LOGIC ---
 def supervisor_router(state: AgentState):
     return state.get("next_agent", END)
 
 def profile_router(state: AgentState):
-    if activity := state.get("detected_activity"):
+    if state.get("detected_activity"):
         print("---PROFILE ROUTER: Activity detected, routing to advisory agent.---")
-        state["messages"][-1] = HumanMessage(content=activity)
         return "agro_advisory"
     else:
-        print("---PROFILE ROUTER: No activity, routing to formatter.---")
-        return "formatter"
+        # OPTIMIZATION: Route to END instead of formatter
+        print("---PROFILE ROUTER: No activity, ending turn.---")
+        return END
 
 workflow.set_entry_point("supervisor")
 
@@ -82,13 +84,12 @@ workflow.add_conditional_edges("supervisor", supervisor_router, {
 
 workflow.add_conditional_edges("farmer_profile", profile_router)
 
-workflow.add_edge("agro_advisory", "formatter")
-workflow.add_edge("weather", "formatter")
-workflow.add_edge("knowledge_support", "formatter")
-workflow.add_edge("market_intelligence", "formatter")
-workflow.add_edge("plant_disease", "formatter")
-
-workflow.add_edge("formatter", END)
+# OPTIMIZATION: All agents route to END instead of Formatter
+workflow.add_edge("agro_advisory", END)
+workflow.add_edge("weather", END)
+workflow.add_edge("knowledge_support", END)
+workflow.add_edge("market_intelligence", END)
+workflow.add_edge("plant_disease", END)
 
 app = workflow.compile()
-print("---GRAPH COMPILED: KNOWLEDGE AGENT IS NOW DATABASE-CONNECTED---")
+print("---GRAPH COMPILED: OPTIMIZED MODE (gpt-4o-mini)---")

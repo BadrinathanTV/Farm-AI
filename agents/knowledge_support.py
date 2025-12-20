@@ -3,62 +3,54 @@
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage
-from core.profile_manager import ProfileManager
-from core.farm_log_manager import FarmLogManager
-from datetime import datetime
+from core.memory_service import MemoryService
 
 class KnowledgeSupportAgent:
-    """A fully context-aware agent with access to the user's profile and farm logs."""
-    def __init__(self, llm: BaseLanguageModel, profile_manager: ProfileManager, log_manager: FarmLogManager):
+    """A fully context-aware agent with access to the user's profile and farm logs via MemoryService."""
+    
+    def __init__(self, llm: BaseLanguageModel, memory_service: MemoryService):
         self.llm = llm
-        self.profile_manager = profile_manager
-        self.log_manager = log_manager
-        # --- THE FINAL, ANALYTICAL PROMPT ---
+        self.memory = memory_service
         self.prompt = ChatPromptTemplate.from_template(
-            """You are a helpful and highly analytical AI assistant.
-Your primary function is to answer the user's question based ONLY on the provided context.
-RUN FASTERRR , WE NEED LOW LATECY !!
+            """You are a friendly and knowledgeable AI farming assistant.
+
 **CONTEXT:**
-1.  **Farmer's Name:** {farmer_name}
-2.  **Current Date:** {current_date}
-3.  **Recent Activities Log:**
-    {recent_activities}
-4.  **Full Conversation History:**
-    {chat_history}
+- **Farmer's Name:** {farmer_name}
+- **Active Crops:** {active_crops}
+- **Current Date:** {current_date}
+- **Recent Activities:** {recent_activities}
 
-**USER'S LATEST QUESTION:** "{question}"
+**Conversation History:**
+{chat_history}
 
-**STRICT INSTRUCTIONS:**
--   **If the user's question is about the conversation itself** (e.g., "what did I ask you?", "what have we talked about?"), you **MUST** summarize ONLY the user's previous questions from the 'HUMAN' parts of the chat history.
--   For all other questions, provide a direct and helpful answer using the provided context.
--   Do not invent any information or answer questions outside of the provided context.
+**USER'S MESSAGE:** "{question}"
 
-Based on these instructions, provide a direct and accurate answer.
+**INSTRUCTIONS:**
+1. If the user says "hello" or a greeting, respond warmly and offer to help with farming questions.
+2. If the user asks about their farm, crops, or activities, use the context above.
+3. For general farming questions (pests, techniques, best practices), provide helpful expert advice.
+4. Be concise, friendly, and practical.
+
+Respond naturally:
 """
         )
         self.chain = self.prompt | self.llm
 
     def invoke(self, state: dict) -> dict:
-        print("---KNOWLEDGE SUPPORT AGENT (ANALYTICAL MODE)---")
+        print("---KNOWLEDGE SUPPORT AGENT (MEMORY SERVICE)---")
         user_id = state["user_id"]
-        profile = self.profile_manager.load_profile(user_id)
-        
-        recent_logs = self.log_manager.get_recent_logs(user_id, limit=10)
-        if recent_logs:
-            activities_str = "\n".join([f"- On {log.timestamp.strftime('%Y-%m-%d')}, they performed: {log.details}" for log in recent_logs])
-        else:
-            activities_str = "No recent activities logged."
+        ctx = self.memory.get_context(user_id)
 
         history_str = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in state["messages"][:-1]])
         last_message = state["messages"][-1]
         
         response = self.chain.invoke({
-            "farmer_name": profile.full_name or "Farmer",
-            "current_date": datetime.now().strftime("%A, %B %d, %Y"),
-            "recent_activities": activities_str,
+            "farmer_name": ctx["farmer_name"],
+            "active_crops": ctx["active_crops"],
+            "current_date": ctx["current_date"],
+            "recent_activities": ctx["recent_activities"],
             "chat_history": history_str,
             "question": last_message.content
         })
 
         return {"messages": [AIMessage(content=response.content)]}
-

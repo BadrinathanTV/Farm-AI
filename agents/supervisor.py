@@ -6,8 +6,8 @@ from langchain_core.messages import BaseMessage
 from core.profile_manager import ProfileManager
 
 AGENT_DESCRIPTIONS = {
-    "farmer_profile": "Handles and answers questions about the user's personal profile (e.g., 'what is my name?', 'tell me about me'). Also manages the initial user onboarding.",
-    "agro_advisory": "Handles conversations about specific farming activities (planting, watering, etc.), logs these activities, and provides advice.",
+    "farmer_profile": "Handles the user's profile, crops they are growing/farming/planting, and questions about what crops they have. Use this when the user plants new crops or asks about their crops.",
+    "agro_advisory": "Handles OTHER farming activities like watering, fertilizing, pruning, harvesting. NOT for planting new crops.",
     "weather": "Provides personalized weather forecasts and farming advice based on the weather.",
     "market_intelligence": "For questions about market prices, government schemes, and subsidies.",
     "knowledge_support": "For all other general farming questions, best practices, pest control, etc.",
@@ -29,12 +29,12 @@ class Supervisor:
 
 **Strict Routing Rules:**
 1.  If the user's profile is incomplete, you **must** route to `farmer_profile`.
-2.  If the user asks a question about themselves, their profile, or the information the AI knows about them (e.g., "tell me about me," "what's my location," "do you know my name"), you **must** route to `farmer_profile`.
-3.  If the user describes a farming task they performed (e.g., "I planted rice"), route to `agro_advisory`.
-4.  If the user asks about weather, route to `weather`.
-5.  If the user asks about a plant disease OR uploads an image of a plant, route to `plant_disease`.
-6.  For all other farming questions, route to `knowledge_support`.
-
+2.  If the user asks a question about themselves, their profile, or the information the AI knows about them (e.g., "tell me about me," "what's my location," "do you know my name", "how old are my plants", "what am I growing", "what did I plant"), you **must** route to `farmer_profile`.
+3.  If the user mentions PLANTING, GROWING, or FARMING any crops (e.g., "I planted rice", "I grow tomatoes", "I am farming mangoes", "I have planted chillies"), you **must** route to `farmer_profile`. This agent saves the crops to the user's profile.
+4.  If the user describes OTHER farming activities like watering, fertilizing, pruning, spraying pesticides, or harvesting (e.g., "I watered my plants", "I applied fertilizer"), route to `agro_advisory`.
+5.  If the user asks about weather, route to `weather`.
+6.  If the user asks about a plant disease OR uploads an image of a plant, route to `plant_disease`.
+7.  For all other farming questions, route to `knowledge_support`.
 
 Based on the rules, the user's profile status, and their last message, which agent should be called? Respond with only the agent's name.
 
@@ -46,6 +46,11 @@ Based on the rules, the user's profile status, and their last message, which age
 
     def invoke(self, state: dict) -> dict:
         print("---SUPERVISOR---")
+        # RULE 0: If there is an image, it MUST go to plant_disease. THIS IS TOP PRIORITY.
+        if state.get("image_data"):
+             print("Supervisor: Image detected. Forcing route to plant_disease.")
+             return {"next_agent": "plant_disease"}
+
         user_id = state["user_id"]
         profile = self.profile_manager.load_profile(user_id)
         

@@ -2,13 +2,17 @@
 
 import streamlit as st
 from langchain_core.messages import HumanMessage, AIMessage
-from graph import app
 from core.profile_manager import ProfileManager
 from core.chat_history_manager import ChatHistoryManager
 import uuid
 
 # --- Page & State Configuration ---
 st.set_page_config(page_title="Farm AI Assistant", page_icon="👨‍🌾", layout="wide")
+
+from graph import app
+
+# Initialize graph
+# app = get_graph() # Caching removed to ensure live reloads work during development
 
 def initialize_session_state():
     """Initializes all necessary session state variables."""
@@ -32,6 +36,11 @@ def initialize_session_state():
         st.session_state.profile_manager = ProfileManager()
     if "chat_history_manager" not in st.session_state:
         st.session_state.chat_history_manager = ChatHistoryManager()
+    
+    # HOTFIX: Reload manager if it doesn't have the new delete_chat method (handling stale session state)
+    if not hasattr(st.session_state.chat_history_manager, "delete_chat"):
+         st.session_state.chat_history_manager = ChatHistoryManager()
+
 
 # --- Authentication Logic ---
 def show_login_signup_page():
@@ -79,14 +88,27 @@ def show_chat_interface():
             st.session_state.messages = []
             st.rerun()
 
+        # --- MEMORY INSPECTOR REMOVED ---
+
+
         st.subheader("Chat History")
         st.session_state.chat_sessions = st.session_state.chat_history_manager.get_chat_sessions(st.session_state.user_id)
         
         for session in st.session_state.chat_sessions:
-            if st.button(session["title"], key=session["chat_id"]):
-                st.session_state.chat_id = session["chat_id"]
-                st.session_state.messages = st.session_state.chat_history_manager.load_history(session["chat_id"])
-                st.rerun()
+            col1, col2 = st.columns([0.8, 0.2])
+            with col1:
+                if st.button(session["title"], key=f"btn_{session['chat_id']}"):
+                    st.session_state.chat_id = session["chat_id"]
+                    st.session_state.messages = st.session_state.chat_history_manager.load_history(session["chat_id"])
+                    st.rerun()
+            with col2:
+                if st.button("🗑️", key=f"del_{session['chat_id']}", help="Delete Chat"):
+                    st.session_state.chat_history_manager.delete_chat(session["chat_id"])
+                    # If deleted active chat, reset functionality
+                    if st.session_state.chat_id == session["chat_id"]:
+                        st.session_state.chat_id = None
+                        st.session_state.messages = []
+                    st.rerun()
         
         if st.button("Logout"):
             for key in st.session_state.keys():
@@ -106,14 +128,19 @@ def show_chat_interface():
             st.markdown(message.content)
 
     # --- Input Area ---
-    # We use a popover for image upload to mimic a "paperclip" attachment style
-    with st.popover("📎 Add Image", help="Upload a plant image for diagnosis"):
-        # Use a dynamic key to allow clearing the uploader
-        uploaded_file = st.file_uploader(
-            "Choose an image...", 
-            type=["jpg", "jpeg", "png"], 
-            key=f"uploader_{st.session_state.uploader_key}"
-        )
+    # --- Input Area ---
+    # Compact layout for image upload near the bottom
+    col1, col2 = st.columns([0.1, 0.9])
+    with col1:
+        with st.popover("📎", help="Upload a plant image"):
+             # Use a dynamic key to allow clearing the uploader
+            uploaded_file = st.file_uploader(
+                "Choose an image...", 
+                type=["jpg", "jpeg", "png"], 
+                key=f"uploader_{st.session_state.uploader_key}"
+            )
+    with col2:
+        st.write("") # Spacer to align if needed, or just leave empty to let chat_input take over visual focus below
 
     # Chat Input - Always rendered
     if prompt := st.chat_input("Ask a question or describe your plant issue..."):

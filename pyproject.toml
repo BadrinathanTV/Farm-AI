@@ -18,4 +18,5 @@ dependencies = [
     "streamlit>=1.50.0",
     "argon2-cffi>=23.1.0",
     "huggingface-hub>=0.23.0",
+    "litellm>=1.80.10",
 ]

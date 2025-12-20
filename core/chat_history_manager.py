@@ -49,3 +49,9 @@ class ChatHistoryManager:
         )
         print(f"---CHAT HISTORY MANAGER: Saved history for chat {chat_id}---")
 
+    def delete_chat(self, chat_id: str):
+        """Deletes a specific chat session."""
+        self.history_collection.delete_one({"chat_id": chat_id})
+        print(f"---CHAT HISTORY MANAGER: Deleted chat {chat_id}---")
+
+

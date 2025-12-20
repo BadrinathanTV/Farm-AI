@@ -1,8 +1,8 @@
-import os
+# agents/market_intelligence.py
+
 import uuid
 from dotenv import load_dotenv
 from langchain_core.language_models import BaseLanguageModel
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers.json import JsonOutputParser
 from langchain_core.messages import AIMessage
@@ -15,20 +15,22 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.flows.llm_flows.contents import types as content_types
 from google.adk.models.lite_llm import LiteLlm
 
+from core.memory_service import MemoryService
+
 load_dotenv()
 
 class MarketIntelligenceAgent:
     """
     Agent responsible for providing market insights and crop prices using Google ADK and Google Search.
+    Uses MemoryService to know what crops the user is farming.
     """
-    def __init__(self, llm: BaseLanguageModel):
+    def __init__(self, llm: BaseLanguageModel, memory_service: MemoryService):
         self.llm = llm
+        self.memory = memory_service
         
         # Configure ADK Agent
-        # We use a unique session ID per agent instance or handle it in invoke
         self.adk_agent = Agent(
             name="market_agent",
-            # Openai models are not supported for google search tool and other built-in tools , so use gemini models to access it !
             model=LiteLlm("openai/gpt-4o-mini"),
             tools=[google_search],
             instruction="""You are a local market expert. Your goal is to find the most recent and specific market prices for crops in the specified location.
@@ -45,18 +47,20 @@ class MarketIntelligenceAgent:
         )
 
         class MarketQuery(BaseModel):
-            crop: str = Field(description="The crop the user is asking about.")
+            crop: str = Field(description="The crop the user is asking about. If user says 'my crops', use the active crops from context.")
             location: str = Field(description="The location for the market data.")
 
         self.parser = JsonOutputParser(pydantic_object=MarketQuery)
         self.prompt = ChatPromptTemplate.from_template(
             """You are a market analyst. Extract the crop and location from the user's query.
-            If no location is specified, default to 'Global'.
+            If no location is specified, use the user's known location.
+            If user says "my crops", use the active crops from context.
+            
+            **User's Context:**
+            - Location: {location}
+            - Active Crops: {active_crops}
             
             User Query: {message}
-            
-            Conversation History:
-            {chat_history}
             
             {format_instructions}
             """
@@ -64,18 +68,19 @@ class MarketIntelligenceAgent:
         self.chain = self.prompt | self.llm | self.parser
 
     def invoke(self, state: dict) -> dict:
-        print("---MARKET INTELLIGENCE AGENT (ADK)---")
+        print("---MARKET INTELLIGENCE AGENT (MEMORY SERVICE)---")
+        user_id = state["user_id"]
+        ctx = self.memory.get_context(user_id)
+        
         messages = state["messages"]
         last_message = messages[-1].content
         
-        # Create history string (excluding the last message which is passed separately)
-        chat_history = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in state["messages"][:-1]])
-        
         try:
-            # Extract intent
+            # Extract intent with user context
             query_data = self.chain.invoke({
                 "message": last_message,
-                "chat_history": chat_history,
+                "location": ctx["location"],
+                "active_crops": ctx["active_crops"],
                 "format_instructions": self.parser.get_format_instructions()
             })
             crop = query_data["crop"]
@@ -84,45 +89,30 @@ class MarketIntelligenceAgent:
             # Construct query for ADK Agent
             search_query = f"latest market price of {crop} in {location} today mandi rates"
             
-            # Update ADK Agent instructions to be more specific
-            # Note: We are re-initializing the agent here to update instructions, or we could have set it in __init__
-            # For now, let's just rely on the query being better. 
-            # But actually, we can pass instructions to the Agent constructor.
-            # Let's update the __init__ to include instructions.
-            
-            # Create a new session for each query to avoid context pollution or manage session properly
-            # Using a random session ID for now as we treat each query independently here
             session_id = str(uuid.uuid4())
-            user_id = "farm_ai_user" # Could be passed from state if available
+            adk_user_id = "farm_ai_user"
             
             self.session_service.create_session_sync(
                 session_id=session_id, 
-                user_id=user_id,
+                user_id=adk_user_id,
                 app_name="farm_ai"
             )
             
-            # Create Content object
             adk_message = content_types.Content(
                 role='user', 
                 parts=[content_types.Part(text=search_query)]
             )
             
-            # Run ADK Agent
             response_text = ""
             events = self.runner.run(
-                user_id=user_id,
+                user_id=adk_user_id,
                 session_id=session_id,
                 new_message=adk_message
             )
             
             for event in events:
-                # print(f"DEBUG: Event type: {type(event)}")
-                # print(f"DEBUG: Event attrs: {dir(event)}")
-                
-                # Check if event has content
                 if hasattr(event, 'content') and event.content:
                     content = event.content
-                    # Check if content has role 'model'
                     if hasattr(content, 'role') and content.role == 'model':
                         if hasattr(content, 'parts'):
                             for part in content.parts:
@@ -131,7 +121,6 @@ class MarketIntelligenceAgent:
 
             if not response_text:
                 response_text = "I searched but couldn't find specific market data."
-
 
             final_response = (
                 f"**Market Report for {crop} in {location}:**\n\n"

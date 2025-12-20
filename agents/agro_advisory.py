@@ -25,12 +25,13 @@ class AgroAdvisoryAgent:
             details: str = Field(description="A concise summary of the specific activity performed.")
             # The LLM will calculate the date based on the user's message and the current date.
             timestamp_str: str = Field(description="The date of the activity in YYYY-MM-DD format. Calculate this based on the current date if the user provides a relative time like 'today' or 'yesterday'.")
+            advice: str = Field(description="A friendly, brief, and helpful farming tip or warning related to this specific activity. Address the user directly.")
 
         self.parser = JsonOutputParser(pydantic_object=ActivityLog)
         self.prompt = ChatPromptTemplate.from_template(
             """You are a data extraction specialist with perfect understanding of time.
 Your job is to analyze a user's description of a farming activity and extract its details, including the correct date.
-RUN FASTERRR , WE NEED LOW LATECY !!
+
 **Current Date:** {current_date}
 
 **User's description of activity:** "{message}"
@@ -40,10 +41,12 @@ RUN FASTERRR , WE NEED LOW LATECY !!
 2.  If the user says "today," use the current date.
 3.  If the user says "yesterday," calculate yesterday's date.
 4.  You MUST return the date in "YYYY-MM-DD" format in the `timestamp_str` field.
+5.  Generate helpful `advice` related to the activity. Be proactive (e.g., if planting, mention soil/water; if harvesting, mention post-harvest care).
 
 {format_instructions}
 """
         )
+        self.prompt = self.prompt.partial(format_instructions=self.parser.get_format_instructions())
         self.chain = self.prompt | self.llm | self.parser
 
     def invoke(self, state: dict) -> dict:
@@ -68,9 +71,17 @@ RUN FASTERRR , WE NEED LOW LATECY !!
                     timestamp=log_timestamp
                 )
                 self.log_manager.add_log(user_id, farm_log)
+                
+                # Generate a confirmation message
+                # OLD: response_content = f"I've logged that you {activity_data['activity_type'].lower()} ('{activity_data['details']}') on {activity_data['timestamp_str']}."
+                
+                # NEW: Natural, value-add response
+                response_content = activity_data['advice']
+                return {"messages": [AIMessage(content=response_content)]}
+                
             except Exception as e:
                 print(f"---AGRO ADVISORY FAILED to parse or log activity: {e}---")
+                return {"messages": [AIMessage(content="I noticed you did some work, but I couldn't log it properly due to an error.")]}
 
-        # Return an empty dictionary to pass the state through without changing messages.
-        return {}
+        return {"messages": [AIMessage(content="I've noted that activity.")]}
 
