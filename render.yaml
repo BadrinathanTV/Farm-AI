@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: farm-ai
+    env: docker
+    plan: free
+    region: singapore # Optional: chose a default region or let user pick
+    branch: main
+    # Health check path for Streamlit
+    healthCheckPath: /_stcore/health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false # User must provide this value in the dashboard
+      - key: ANTHROPIC_API_KEY
+        sync: false 
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: LANGCHAIN_TRACING_V2
+        value: "true"
+      - key: LANGCHAIN_API_KEY
+        sync: false
