@@ -48,16 +48,27 @@ class MarketIntelligenceAgent:
         class MarketQuery(BaseModel):
             crop: str = Field(description="The crop the user is asking about. If user says 'my crops', use the active crops from context.")
             location: str = Field(description="The location for the market data.")
+            search_query: str = Field(description="The BEST search query. Must include Location + Country + 'mandi rates' or 'market price'.")
 
         self.parser = JsonOutputParser(pydantic_object=MarketQuery)
         self.prompt = ChatPromptTemplate.from_template(
-            """You are a market analyst. Extract the crop and location from the user's query.
+            """You are a market analyst. 
+            1. Extract the crop and location from the user's query.
+            2. Generate a highly effective search query to find the price of these crops in the specified location today.
+            
+            **CRITICAL SEARCH QUERY RULES:**
+            - **ALWAYS** include the Country Name (e.g., "India") to avoid ambiguity (e.g., avoid Pakistan/US results for Indian cities).
+            - Use specific terms like "mandi rates", "wholesale price", "daily market report", "agmarknet".
+            - **AVOID** generic terms that lead to news or encyclopedias.
+            - Example: "Apple and Orange price in Chennai India today mandi rates"
+            
             If no location is specified, use the user's known location.
             If user says "my crops", use the active crops from context.
             
             **User's Context:**
             - Location: {location}
             - Active Crops: {active_crops}
+            - Current Date: {current_date}
             
             User Query: {message}
             
@@ -76,18 +87,18 @@ class MarketIntelligenceAgent:
         
         try:
             # Extract intent with user context
+            today_str = datetime.now().strftime("%d %B %Y")
+            
             query_data = self.chain.invoke({
                 "message": last_message,
                 "location": ctx["location"],
                 "active_crops": ctx["active_crops"],
+                "current_date": today_str,
                 "format_instructions": self.parser.get_format_instructions()
             })
             crop = query_data["crop"]
             location = query_data["location"]
-            
-            # Construct query for search with dynamic date (Keyword optimized)
-            today_str = datetime.now().strftime("%d %B %Y")
-            search_query = f"{crop} price {location} {today_str} mandi rates"
+            search_query = query_data["search_query"]
             
             # Execute Search via MCP
             print(f"--- MARKETS: Searching for '{search_query}' ---")

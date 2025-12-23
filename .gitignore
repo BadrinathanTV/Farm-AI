@@ -23,6 +23,7 @@ build/
 
 # Logs
 *.log
+knowledge_base_index/
 
 # Exclusions
 
@@ -31,5 +32,8 @@ test_hf_api.py
 
 # New Exclusions
 tests/
+
+
+
 test_agent_fix.py
 verify_ddg_lib.py
