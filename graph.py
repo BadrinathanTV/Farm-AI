@@ -8,7 +8,6 @@ from langgraph.graph import StateGraph, END
 from agents.supervisor import Supervisor
 from agents.farmer_profile import FarmerProfileAgent
 from agents.weather import WeatherAgent
-from agents.agro_advisory import AgroAdvisoryAgent
 
 from agents.knowledge_support import KnowledgeSupportAgent
 from agents.market_intelligence import MarketIntelligenceAgent
@@ -40,8 +39,7 @@ class AgentState(TypedDict):
 supervisor_node = Supervisor(llm, profile_manager)
 profile_agent_node = FarmerProfileAgent(llm, profile_manager, memory_store)
 weather_agent_node = WeatherAgent(llm, memory_service)
-agro_advisory_node = AgroAdvisoryAgent(llm, log_manager)
-knowledge_agent_node = KnowledgeSupportAgent(llm, memory_service)
+knowledge_agent_node = KnowledgeSupportAgent(llm, memory_service, log_manager)
 market_agent_node = MarketIntelligenceAgent(llm, memory_service)
 plant_disease_node = PlantDiseaseAgent(llm)
 
@@ -51,7 +49,6 @@ workflow = StateGraph(AgentState)
 # Add all nodes to the graph
 workflow.add_node("supervisor", supervisor_node.invoke)
 workflow.add_node("farmer_profile", profile_agent_node.invoke)
-workflow.add_node("agro_advisory", agro_advisory_node.invoke)
 workflow.add_node("weather", weather_agent_node.invoke)
 workflow.add_node("knowledge_support", knowledge_agent_node.invoke)
 workflow.add_node("market_intelligence", market_agent_node.invoke)
@@ -63,8 +60,8 @@ def supervisor_router(state: AgentState):
 
 def profile_router(state: AgentState):
     if state.get("detected_activity"):
-        print("---PROFILE ROUTER: Activity detected, routing to advisory agent.---")
-        return "agro_advisory"
+        print("---PROFILE ROUTER: Activity detected, routing to KNOWLEDGE SUPPORT (Unified).---")
+        return "knowledge_support"
     else:
         # OPTIMIZATION: Route to END instead of formatter
         print("---PROFILE ROUTER: No activity, ending turn.---")
@@ -74,7 +71,6 @@ workflow.set_entry_point("supervisor")
 
 workflow.add_conditional_edges("supervisor", supervisor_router, {
     "farmer_profile": "farmer_profile",
-    "agro_advisory": "agro_advisory",
     "weather": "weather",
     "knowledge_support": "knowledge_support",
     "market_intelligence": "market_intelligence",
@@ -85,7 +81,7 @@ workflow.add_conditional_edges("supervisor", supervisor_router, {
 workflow.add_conditional_edges("farmer_profile", profile_router)
 
 # OPTIMIZATION: All agents route to END instead of Formatter
-workflow.add_edge("agro_advisory", END)
+
 workflow.add_edge("weather", END)
 workflow.add_edge("knowledge_support", END)
 workflow.add_edge("market_intelligence", END)

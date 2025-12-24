@@ -2,14 +2,14 @@ import asyncio
 import nest_asyncio
 from typing import Any, Dict, Optional
 from mcp import ClientSession
-from mcp.client.sse import sse_client
+from mcp.client.streamable_http import streamable_http_client
 
 # Apply nest_asyncio to allow nested event loops (crucial for Streamlit)
 nest_asyncio.apply()
 
 class MCPWrapper:
     """
-    A synchronous wrapper for MCP Servers via SSE.
+    A synchronous wrapper for MCP Servers via Streamable HTTP.
     Manages the lifecycle of the connection for each call.
     Uses nest_asyncio to support execution within existing event loops.
     """
@@ -20,8 +20,9 @@ class MCPWrapper:
     async def _execute_async(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         print(f"--- MCP WRAPPER: Connecting to {self.server_url} for tool '{tool_name}' ---")
         try:
-            # Connect to the SSE endpoint
-            async with sse_client(self.server_url) as (read, write):
+            # Connect to the Streamable HTTP endpoint
+            # Yields: (read, write, get_session_id_callback)
+            async with streamable_http_client(self.server_url) as (read, write, _):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
                     

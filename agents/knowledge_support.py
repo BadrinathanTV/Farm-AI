@@ -5,40 +5,78 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage
 from core.memory_service import MemoryService
 from core.rag_service import RAGService
+from core.farm_log_manager import FarmLogManager
+from core.models import FarmLog
 from langchain_core.output_parsers import JsonOutputParser
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
+from datetime import datetime
 
 class ExpandedQueries(BaseModel):
     queries: List[str] = Field(description="List of 3 alternative search queries to find relevant farming info.")
 
+class ActivityLog(BaseModel):
+    """Schema for extracting farming activities."""
+    activity_type: str = Field(description="The category of farming activity, e.g., 'Planting', 'Irrigation'.")
+    details: str = Field(description="A concise summary of the specific activity performed.")
+    timestamp_str: str = Field(description="The date of the activity in YYYY-MM-DD format. Calculate based on current date.")
+    advice: str = Field(description="A friendly, brief, and helpful farming tip or warning related to this specific activity.")
+
 class KnowledgeSupportAgent:
-    """A fully context-aware agent with access to the user's profile and farm logs via MemoryService."""
+    """A unified agent for answering questions (RAG) and logging activities."""
     
-    def __init__(self, llm: BaseLanguageModel, memory_service: MemoryService):
+    def __init__(self, llm: BaseLanguageModel, memory_service: MemoryService, log_manager: FarmLogManager):
         self.llm = llm
         self.memory = memory_service
+        self.log_manager = log_manager
         self.rag = RAGService()
         
-        self.query_expander = (
-            ChatPromptTemplate.from_template(
-                """You are a helpful farming assistant.
-                Generate 3 different search queries to find relevant information for the user's question.
-                Focus on:
-                1. Synonyms (e.g., "dying" -> "wilt", "necrosis")
-                2. Technical terms (e.g., "pests" -> "aphids", "thrips")
-                3. The core intent.
-                
-                User Question: {question}
-                
-                {format_instructions}
-                """
-            )
-            | self.llm
-            | JsonOutputParser(pydantic_object=ExpandedQueries)
+        # Activity Extraction Chain
+        self.log_parser = JsonOutputParser(pydantic_object=ActivityLog)
+        activity_prompt = ChatPromptTemplate.from_template(
+            """You are a data extraction specialist. Analyze the user's message.
+            
+            Current Date: {current_date}
+            User Message: "{message}"
+            
+            If the user describes a COMPLETED farming activity (e.g., "I pruned logs", "Watered today"):
+            1. Extract details.
+            2. specific date (YYYY-MM-DD).
+            3. Generate helpful advice.
+            
+            {format_instructions}
+            """
         )
+        self.activity_chain = activity_prompt | self.llm | self.log_parser
+        
+        self.activity_chain = activity_prompt | self.llm | self.log_parser
+        
+        # Query Router (Optimization)
+        class QueryRouter(BaseModel):
+            intent: str = Field(description="The intent of the user. Options: 'GREETING', 'GENERAL_CHAT', 'FARMING_QUERY'.")
+        
+        self.router_parser = JsonOutputParser(pydantic_object=QueryRouter)
+        router_prompt = ChatPromptTemplate.from_template(
+            """Classify the user instructions.
+            User Input: "{question}"
+            
+            Options:
+            - GREETING: Hello, Hi, Thanks, Bye.
+            - GENERAL_CHAT: How are you?, What is your name?, simple small talk.
+            - FARMING_QUERY: Any question about crops, soil, chemicals, diseases, government schemes, prices, "how to", "why".
+            
+            {format_instructions}
+            """
+        )
+        self.router_chain = router_prompt | self.llm | self.router_parser
+        
+        self.router_chain = router_prompt | self.llm | self.router_parser
+        
+        # Query Expansion removed for latency optimization.
+        # We will use the raw user query + Hybrid Search.
         self.prompt = ChatPromptTemplate.from_template(
-            """You are a friendly and knowledgeable AI farming assistant.
+            """You are 'Farm-AI', a knowledgeable and encouraging farming companion (Agri-Friend).
+Your goal is to provide expert advice with a warm, personal touch.
 
 **CONTEXT:**
 - **Farmer's Name:** {farmer_name}
@@ -55,10 +93,10 @@ class KnowledgeSupportAgent:
 **USER'S MESSAGE:** "{question}"
 
 **INSTRUCTIONS:**
-1. If the user says "hello" or a greeting, respond warmly and offer to help with farming questions.
-2. If the user asks about their farm, crops, or activities, use the context above.
-3. For general farming questions (pests, techniques, best practices), provide helpful expert advice.
-4. Be concise, friendly, and practical.
+1. **Be Warm & Personable:** Don't just answer; connect. Use phrases like "I'm glad you asked" or "That's a great question."
+2. **Contextualize:** If the user asks about crops they are growing (context above), mention their specific situation. (e.g., "Since you're growing tomatoes in Chennai, you should watch out for...")
+3. **No Robot-Speak:** Avoid saying "According to the context provided" or "Based on the documents." Just give the advice naturally as an expert.
+4. **Actionable & Encouraging:** End with encouragement or a practical next step.
 
 Respond naturally:
 """
@@ -66,25 +104,91 @@ Respond naturally:
         self.chain = self.prompt | self.llm
 
     def invoke(self, state: dict) -> dict:
-        print("---KNOWLEDGE SUPPORT AGENT (RAG ENABLED)---")
+        print("---KNOWLEDGE SUPPORT AGENT (UNIFIED: RAG + LOGGING)---")
         user_id = state["user_id"]
         ctx = self.memory.get_context(user_id)
-
-        history_str = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in state["messages"][:-1]])
+        
         last_message = state["messages"][-1]
         user_query = last_message.content
+        history_str = "\n".join([f"{msg.type.upper()}: {msg.content}" for msg in state["messages"][:-1]])
+        detected_activity = state.get("detected_activity")
         
-        # 1. Query Expansion
+        # --- PATH 1: ACTIVITY LOGGING (Action) ---
+        # Trigger if Profile Agent detected activity OR if the user message strongly implies action
+        if detected_activity or "I " in user_query: # Simple heuristic + explicit signal
+            # Try to extract activity
+            try:
+                print(f"--- KNOWLEDGE: Attempting to extract activity from: {user_query} ---")
+                activity_data = self.activity_chain.invoke({
+                    "message": user_query,
+                    "current_date": ctx["current_date"],
+                    "format_instructions": self.log_parser.get_format_instructions()
+                })
+                
+                # If extraction succeeded (fields present)
+                if activity_data.get('activity_type'):
+                    print(f"--- KNOWLEDGE: Logging Activity: {activity_data['activity_type']} ---")
+                    log_timestamp = datetime.strptime(activity_data["timestamp_str"], "%Y-%m-%d")
+                    farm_log = FarmLog(
+                        activity_type=activity_data["activity_type"],
+                        details=activity_data["details"],
+                        timestamp=log_timestamp
+                    )
+                    self.log_manager.add_log(user_id, farm_log)
+                    return {"messages": [AIMessage(content=activity_data['advice'])]}
+            except Exception as e:
+                print(f"--- KNOWLEDGE: Not a valid activity or error extraction: {e} ---")
+                # Fallthrough to RAG if it wasn't a loggable action
+        
+        # --- PATH 2: KNOWLEDGE RAG vs GENERAL CHAT (Dynamic Routing) ---
+        print(f"--- KNOWLEDGE: Routing query '{user_query}'... ---")
+        
         try:
-            expanded = self.query_expander.invoke({
+            # OPTIMIZATION: Check intent before triggering expensive RAG
+            route_result = self.router_chain.invoke({
                 "question": user_query,
-                "format_instructions": JsonOutputParser(pydantic_object=ExpandedQueries).get_format_instructions()
+                "format_instructions": self.router_parser.get_format_instructions()
             })
-            queries = expanded.get("queries", [user_query])
-            print(f"--- RAG: Expanded Queries: {queries} ---")
+            intent = route_result.get("intent", "FARMING_QUERY")
+            print(f"--- KNOWLEDGE: Identified Intent: {intent} ---")
+            
+            if intent in ["GREETING", "GENERAL_CHAT"]:
+                # Fast Path: No RAG
+                print("--- KNOWLEDGE: Taking FAST PATH (No RAG) ---")
+                fast_prompt = ChatPromptTemplate.from_template(
+                    """You are 'Farm-AI', a warm and friendly farming companion.
+                    
+                    **CONTEXT - RECENT CONVERSATION:**
+                    {chat_history}
+                    
+                    User said: "{question}"
+                    
+                    Respond comfortably and enthusiastically. 
+                    - If they refer to previous topics (like "he", "it", "that"), use the CONTEXT to understand who or what they mean.
+                    - **CRITICAL: DO NOT GREET** unless the user explicitly said "Hello" or "Hi" in this message.
+                    - If they are just continuing the chat (e.g., "he is sad", "ok", "tell me more"), jump straight to the response.
+                    - Keep it conversational and brief.
+                    """
+                )
+                fast_chain = fast_prompt | self.llm
+                response = fast_chain.invoke({
+                    "question": user_query,
+                    "chat_history": history_str
+                })
+                return {"messages": [AIMessage(content=response.content)]}
+                
         except Exception as e:
-            print(f"--- RAG: Expansion failed ({e}), using original query. ---")
-            queries = [user_query]
+            print(f"--- KNOWLEDGE: Router failed ({e}), defaulting to RAG ---")
+
+        # --- SLOW PATH: RAG ---
+        print("--- KNOWLEDGE: Proceeding to RAG (Farming Query) ---")
+        
+        # --- SLOW PATH: RAG ---
+        print("--- KNOWLEDGE: Proceeding to RAG (Farming Query) ---")
+        
+        # 1. Direct Search (Optimized)
+        queries = [user_query]
+        print(f"--- RAG: Using Query: {queries} ---")
 
         # 2. Hybrid Search for each query
         retrieved_docs = []
@@ -102,6 +206,14 @@ Respond naturally:
         
         if not context_str:
             context_str = "No specific official documents found."
+
+        # LOGGING SOURCES FOR USER VERIFICATION
+        print("--- RAG CITATIONS ---")
+        for i, d in enumerate(final_docs):
+            source = d.metadata.get('source', 'Unknown')
+            page = d.metadata.get('page', 'N/A')
+            print(f"[{i+1}] Source: {source} | Page: {page}")
+        print("---------------------")
 
         response = self.chain.invoke({
             "farmer_name": ctx["farmer_name"],

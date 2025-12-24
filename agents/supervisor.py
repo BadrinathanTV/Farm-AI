@@ -6,12 +6,11 @@ from langchain_core.messages import BaseMessage
 from core.profile_manager import ProfileManager
 
 AGENT_DESCRIPTIONS = {
-    "farmer_profile": "Handles the user's profile, crops they are growing/farming/planting, and questions about what crops they have. Use this when the user plants new crops or asks about their crops.",
-    "agro_advisory": "Logs COMPLETED farming activities like 'I watered', 'I fertilized'. ONLY for logging actions the user HAS DONE.",
-    "weather": "Provides personalized weather forecasts and farming advice based on the weather.",
+    "farmer_profile": "Handles the user's profile, planting new crops, and profile questions.",
+    "weather": "Provides personalized weather forecasts and farming advice.",
     "market_intelligence": "For questions about market prices, government schemes, and subsidies.",
-    "knowledge_support": "For all general farming QUESTIONS, guidance, 'how-to' guides, pest control, chemical names, and best practices.",
-    "plant_disease": "Analyzes images or descriptions of sick plants to diagnose diseases and recommend treatments."
+    "knowledge_support": "The MAIN agent for: 1. Logging COMPLETED actions ('I watered', 'I pruned'), 2. Answering ANY farming questions ('How to prune?', 'Best pesticide?').",
+    "plant_disease": "Analyzes images or descriptions of sick plants to diagnose diseases."
 }
 
 class Supervisor:
@@ -22,23 +21,25 @@ class Supervisor:
         self.profile_manager = profile_manager
 
         agent_options = "\n- ".join([f"{name}: {desc}" for name, desc in AGENT_DESCRIPTIONS.items()])
-        prompt_template = f"""You are the supervisor of a multi-agent agricultural assistant. Your sole responsibility is to analyze the user's latest message and route it to the correct agent.
+        prompt_template = f"""You are the supervisor of a multi-agent agricultural assistant. Route the user's message to the correct agent.
 
 **Available Agents:**
 {agent_options}
 
 **Strict Routing Rules:**
-1.  **Profile Check:** If the user's profile is incomplete, ONLY route to `farmer_profile` if the user's request *requires* personal information (like "what crops do I have?", "weather near me"). If the request provides all necessary info (e.g., "price of tomatoes in Chennai"), route to the specific agent (`market_intelligence`).
-2.  **Questions vs Actions:**
-    - If the user asks **"HOW to..."**, **"What is..."**, **"Guide for..."**, or asks for advice on *doing* something (e.g., "How to prune mango trees?"), route to `knowledge_support`.
-    - If the user says they **"HAVE DONE"** something or describes a **completed action** (e.g., "I pruned the trees", "Watering done", "Applied fertilizer"), route to `agro_advisory`.
-3.  If the user asks a question about themselves, their profile, or the information the AI knows about them (e.g., "tell me about me," "what's my location," "do you know my name", "how old are my plants", "what am I growing", "what did I plant"), you **must** route to `farmer_profile`.
-4.  If the user mentions PLANTING, GROWING, or FARMING any crops (e.g., "I planted rice", "I grow tomatoes", "I am farming mangoes", "I have planted chillies"), you **must** route to `farmer_profile`. This agent saves the crops to the user's profile.
-5.  If the user asks about weather, route to `weather`.
-6.  If the user asks about a plant disease OR uploads an image of a plant, route to `plant_disease`.
-7.  For all other farming questions, route to `knowledge_support`.
+1.  **Profile Check:** If profile is incomplete, route to `farmer_profile` ONLY if needed. Otherwise, route to specific agent.
+3.  **Unified Support:**
+    - If the user asks **"HOW to..."**, **"Guide for..."**, or asks advice -> Route to `knowledge_support` (It searches manuals).
+    - If the user asks about **Government Schemes**, **Subsidies**, or **Policies** -> Route to `knowledge_support` (It searches RAG/Documents).
+    - If the user says **"I HAVE DONE"** or describes a completed action ("I pruned trees", "Watering done") -> Route to `knowledge_support` (It logs the action).
+4.  **Market Intelligence:** 
+    - Queries about **PRICES**, **RATES**, or **MARKET COSTS** ONLY.
+    - **CRITICAL:** If user says "find in [Location]" or "price of it" or "find it [location]", route to `market_intelligence`.
+5.  **Farmer Profile:** Use ONLY for planting NEW crops ("I planted tomatoes") or asking about self ("What am I growing?").
+6.  **Weather:** For weather questions.
+7.  **Disease:** For sick plants/images.
 
-Based on the rules, the user's profile status, and their last message, which agent should be called? Respond with only the agent's name.
+Based on the rules, which agent should be called? Respond with only the agent's name.
 
 **User Profile Status:** {{profile_status}}
 **User's last message:** "{{last_message}}"

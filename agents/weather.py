@@ -3,7 +3,7 @@
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import AIMessage
-from tools.weather_api import get_weather_forecast
+from core.mcp_wrapper import MCPWrapper
 from core.memory_service import MemoryService
 
 class WeatherAgent:
@@ -12,6 +12,9 @@ class WeatherAgent:
     def __init__(self, llm: BaseLanguageModel, memory_service: MemoryService):
         self.llm = llm
         self.memory = memory_service
+        # Initialize MCP Wrapper (re-using same server URL)
+        self.mcp = MCPWrapper(server_url="http://localhost:8000/mcp")
+        
         self.prompt = ChatPromptTemplate.from_template(
             """You are a world-class agronomist AI providing hyper-precise weather advice.
 
@@ -37,14 +40,16 @@ Based on these instructions, provide a concise and actionable response.
         self.chain = self.prompt | self.llm
 
     def invoke(self, state: dict) -> dict:
-        print("---WEATHER AGENT (MEMORY SERVICE)---")
+        print("---WEATHER AGENT (MCP SERVICE)---")
         user_id = state["user_id"]
         ctx = self.memory.get_context(user_id)
 
         if not ctx.get("latitude") or not ctx.get("longitude"):
             return {"messages": [AIMessage(content="I can't give a forecast without your location.")]}
 
-        weather_data = get_weather_forecast.invoke({
+        # Execute Weather Tool via MCP
+        print(f"--- WEATHER: Fetching forecast for {ctx['location']} ---")
+        weather_data = self.mcp.execute_tool("get_weather_forecast", {
             "latitude": ctx["latitude"],
             "longitude": ctx["longitude"]
         })

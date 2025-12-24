@@ -31,15 +31,19 @@ class PlantDiseaseAgent:
 
         # Prompt for explaining the diagnosis
         self.explanation_prompt = ChatPromptTemplate.from_template(
-            """You are an expert plant pathologist.
+            """You are an expert plant pathologist and a friendly farming companion.
 A specialized computer vision model has analyzed an image of a {crop_name} leaf and detected: **{disease_label}** with a confidence of {score:.1%}.
+
+**USER MESSAGE:** "{user_message}"
 
 **Your Task:**
 Provide a helpful, actionable diagnosis for the farmer.
-1.  **Diagnosis**: Clearly state what the disease is (replace technical names like "Tomato___Early_blight" with natural language like "Early Blight in Tomato").
-2.  **Symptoms**: Briefly describe what this disease usually looks like to confirm it matches what the farmer sees.
-3.  **Treatment**: Provide organic and chemical treatment options.
-4.  **Prevention**: Suggest 1-2 key preventive measures for the future.
+1.  **Acknowledge Context:** If the user mentioned "my friend's farm" or specific concerns in their message, adapt your tone to address that (e.g., "Tell your friend that...").
+2.  **No Repeats:** Do NOT start with "Hello" or "Hey" if the user didn't greet you. Just dive into the helpful advice or acknowledgment.
+3.  **Diagnosis:** Clearly state what the disease is (replace technical names like "Tomato___Early_blight" with natural language like "Early Blight in Tomato").
+4.  **Symptoms:** Briefly describe what this disease usually looks like to confirm it matches what the farmer sees.
+5.  **Treatment:** Provide organic and chemical treatment options.
+6.  **Prevention:** Suggest 1-2 key preventive measures for the future.
 
 Keep the response concise, encouraging, and easy to understand for a farmer.
 """
@@ -93,11 +97,26 @@ Keep the response concise, encouraging, and easy to understand for a farmer.
             if "___" in label:
                 crop_name = label.split("___")[0].replace("_", " ")
 
+            # Extract user message if present (it comes in the last message generally, or the one with the image)
+            user_message_text = "Here is an image."
+            if state.get("messages"):
+                last_msg = state["messages"][-1]
+                if isinstance(last_msg.content, list):
+                    # Multimodal content
+                    for part in last_msg.content:
+                        if isinstance(part, dict) and "text" in part:
+                            user_message_text = part["text"]
+                        elif isinstance(part, str): # Langchain sometimes stores string directly
+                             user_message_text = part   
+                elif isinstance(last_msg.content, str):
+                    user_message_text = last_msg.content
+            
             # Generate explanation
             explanation = self.chain.invoke({
                 "crop_name": crop_name,
                 "disease_label": label,
-                "score": score
+                "score": score,
+                "user_message": user_message_text
             })
             
             return {

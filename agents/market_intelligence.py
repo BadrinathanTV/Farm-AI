@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from core.mcp_wrapper import MCPWrapper
 
+from langchain_core.messages import get_buffer_string
 from core.memory_service import MemoryService
 
 load_dotenv()
@@ -25,7 +26,7 @@ class MarketIntelligenceAgent:
         self.memory = memory_service
         
         # Configure MCP Wrapper for DuckDuckGo (SSE/HTTP)
-        self.mcp = MCPWrapper(server_url="http://localhost:8000/sse")
+        self.mcp = MCPWrapper(server_url="http://localhost:8000/mcp")
         
         # Summary Chain to format the search results
         self.summary_prompt = ChatPromptTemplate.from_template(
@@ -37,8 +38,8 @@ class MarketIntelligenceAgent:
             {search_results}
             
             Please summarize these results into a clear, helpful answer for the farmer.
-            - **CRITICAL:** Only provide prices that are from {current_date} or very recent (last 2-3 days).
-            - If the data is old (e.g., from last year or months ago), EXPLICITLY state that "Current prices are not available, but here is older data...".
+            - **CRITICAL:** Only provide prices that are EXACTLY stated in the text for {current_date} or very recent (last 2-3 days).
+            - **ANTI-HALLUCINATION:** If the text does NOT explicitly state the price for this crop in this location, say: "I couldn't find the exact current daily rate." Do NOT guess or use data from other cities.
             - Focus on finding the price if available.
             - Cite the source links if useful.
             """
@@ -52,25 +53,37 @@ class MarketIntelligenceAgent:
 
         self.parser = JsonOutputParser(pydantic_object=MarketQuery)
         self.prompt = ChatPromptTemplate.from_template(
-            """You are a market analyst. 
-            1. Extract the crop and location from the user's query.
-            2. Generate a highly effective search query to find the price of these crops in the specified location today.
+            """You are a smart market analyst. 
+            1. **Analyze Location (CRITICAL):** 
+               - **Rule A:** Did the user mention a place in the current message? (e.g., "in Gurugram") -> **USE THAT.**
+               - **Rule B:** Did they mention a place in the *Recent History* just now? -> **USE THAT.**
+               - **Rule C:** If flows A & B fail, ONLY THEN use Profile Location: {location}.
             
-            **CRITICAL SEARCH QUERY RULES:**
-            - **ALWAYS** include the Country Name (e.g., "India") to avoid ambiguity (e.g., avoid Pakistan/US results for Indian cities).
-            - Use specific terms like "mandi rates", "wholesale price", "daily market report", "agmarknet".
-            - **AVOID** generic terms that lead to news or encyclopedias.
-            - Example: "Apple and Orange price in Chennai India today mandi rates"
+            2. **Infer Major Market (Mandi):** 
+               - Infer the largest wholesale market (Mandi) or APMC for the detected location.
+               - E.g. If location is "Madurai", inferred market is "Mattuthavani".
+               - If the location is a small town, use the nearest District Mandi.
             
-            If no location is specified, use the user's known location.
-            If user says "my crops", use the active crops from context.
+            3. **Construct Search Query:**
+               - Format: `[Inferred Market Name] [Location] [Crop] price today daily market rate`
+               - **NO SITE RESTRICTION:** Do NOT limit to specific sites.
+               - **APPEND NEGATIVE FILTERS:** You MUST append this string to remove noise:
+                 `-site:wikipedia.org -site:quora.com -site:facebook.com -site:youtube.com -site:instagram.com -news`
+               
+            4. **Goal:** Find ANY reliable source (government or private) that has the data.
             
             **User's Context:**
             - Location: {location}
-            - Active Crops: {active_crops}
-            - Current Date: {current_date}
+            ...
+            **Recent History:**
+            {chat_history}
             
             User Query: {message}
+
+            **Crop Logic:**
+            1. User Mentioned? -> Use that.
+            2. Missing/Implicit ("it", "price")? -> YOU MUST FETCH IT FROM *RECENT HISTORY*.
+            3. *Example:* If history says "User: Tomato price?", then "User: in Bengaluru?", the crop is "Tomato".
             
             {format_instructions}
             """
@@ -89,8 +102,13 @@ class MarketIntelligenceAgent:
             # Extract intent with user context
             today_str = datetime.now().strftime("%d %B %Y")
             
+            # Use chat history to resolve "it" or implicit crop references
+            # messages[:-1] skips the current user query which is already in 'message'
+            history_str = get_buffer_string(messages[:-1])
+            
             query_data = self.chain.invoke({
                 "message": last_message,
+                "chat_history": history_str,
                 "location": ctx["location"],
                 "active_crops": ctx["active_crops"],
                 "current_date": today_str,
