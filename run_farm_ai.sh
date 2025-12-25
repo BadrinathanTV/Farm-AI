@@ -23,7 +23,7 @@ cleanup() {
 trap cleanup SIGINT
 
 # 1. Start MCP Server in the background
-echo -e "${GREEN}[1/2] Starting DuckDuckGo MCP Server (Port 8000)...${NC}"
+echo -e "${GREEN}[1/2] Starting DuckDuckGo MCP Server  & Weather MCP Server (Port 8000)...${NC}"
 # Use uv run to ensure dependencies are loaded
 uv run tools/mcp_server_ddg.py > mcp_server.log 2>&1 &
 MCP_PID=$!

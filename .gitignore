@@ -37,3 +37,6 @@ test_hf_api.py
 
 test_agent_fix.py
 verify_ddg_lib.py
+
+
+run_all.sh

@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     openai_api_key: str
     google_api_key: Optional[str] = None
     huggingfacehub_api_token: Optional[str] = None
+    
+    # Twilio Configuration
+    twilio_account_sid: Optional[str] = None
+    twilio_auth_token: Optional[str] = None
+    twilio_phone_number: Optional[str] = None
 
     @property
     def final_mongo_uri(self) -> str:
