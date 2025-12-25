@@ -40,3 +40,5 @@ verify_ddg_lib.py
 
 
 run_all.sh
+
+.gitignore
