@@ -132,12 +132,13 @@ The project includes a rigorous evaluation module for the RAG component, located
 python EVAL/evaluate_rag.py
 ```
 
-### Sample Report
+### Sample Report (K=1)
 | Metric | Score | Note |
 |--------|-------|------|
-| **Mean Precision@5** | 0.85 | High relevance of top results |
-| **Mean Recall@5** | 0.92 | Most relevant info is retrieved |
-| **Mean MRR** | 0.88 | Correct answer usually in top 2 |
+| **Mean Precision@1** | **0.9512** | Extremely high relevance of top result |
+| **Mean Recall@1** | **0.9024** | 90% of relevant docs found in top 1 |
+| **Mean MRR** | **0.9512** | Correct answer almost always first |
+| **Avg Latency** | **0.86s** | Fast retrieval response |
 
 ---
 
