@@ -18,7 +18,9 @@ The system uses a **Supervisor-Worker** pattern. A central `Supervisor` agent an
 ```mermaid
 graph TD
     User((User)) -->|Message/Image| Streamlit[Streamlit UI]
+    User -->|Text via Network| SMS[Twilio SMS Gateway]
     Streamlit -->|State| Supervisor{Supervisor Agent}
+    SMS -->|State| Supervisor
     
     subgraph "Agent Ecosystem"
         Supervisor -->|Routing| Profile[Farmer Profile Agent]
@@ -74,6 +76,11 @@ graph TD
     - **Web Scraper**: Fetches full page content for detailed analysis.
     - **Weather API**: Fetches 7-day forecasts using Open-Meteo.
 - **Architecture**: A dedicated `FastMCP` server runs locally, exposing these tools via Streamable HTTP to the main application.
+
+### 5. SMS Gateway Integrations 📱
+- **Offline Access**: Farmers without internet/smartphones can interact via SMS.
+- **Twilio Integration**: A dedicated API server (`sms_server.py`) handles incoming messages, routes them to the AI, and sends back responses.
+- **Automatic Account Management**: Mobile numbers are automatically treated as User IDs, maintaining conversation history seamlessly.
 
 ---
 
