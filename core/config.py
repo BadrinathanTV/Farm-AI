@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     google_api_key: Optional[str] = None
     huggingfacehub_api_token: Optional[str] = None
     
+    enable_bm25: bool = True
+    
     # Twilio Configuration
     twilio_account_sid: Optional[str] = None
     twilio_auth_token: Optional[str] = None
