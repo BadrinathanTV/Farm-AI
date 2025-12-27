@@ -1,0 +1,252 @@
+[
+    {
+        "query": "What are the general conditions for cultivation of crops?",
+        "relevant_docs": [
+            "farmerbook.pdf"
+        ]
+    },
+    {
+        "query": "Safety precautions for handling pesticides",
+        "relevant_docs": [
+            "farmerbook.pdf"
+        ]
+    },
+    {
+        "query": "Occupational health and safety guidelines for farmers",
+        "relevant_docs": [
+            "farmerbook.pdf"
+        ]
+    },
+    {
+        "query": "Steps to conduct on-farm research trial",
+        "relevant_docs": [
+            "Farmers-Guide-to-Conducting-On-Farm-Research.pdf"
+        ]
+    },
+    {
+        "query": "How to identify research question and hypothesis for farm trial?",
+        "relevant_docs": [
+            "Farmers-Guide-to-Conducting-On-Farm-Research.pdf"
+        ]
+    },
+    {
+        "query": "Sampling strategies for yield data collection",
+        "relevant_docs": [
+            "Farmers-Guide-to-Conducting-On-Farm-Research.pdf"
+        ]
+    },
+    {
+        "query": "How to analyze data from on-farm research?",
+        "relevant_docs": [
+            "Farmers-Guide-to-Conducting-On-Farm-Research.pdf"
+        ]
+    },
+    {
+        "query": "Core principles of Natural Farming",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "How to prepare natural farming bio-inputs?",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "Pest management practices for Maize in Natural Farming",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "Mulching techniques in natural farming",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "Objectives of Agriculture Infrastructure Fund (AIF) scheme",
+        "relevant_docs": [
+            "AIF_Guidelines_English_12Jun24.pdf"
+        ]
+    },
+    {
+        "query": "Who are the eligible beneficiaries for AIF scheme?",
+        "relevant_docs": [
+            "AIF_Guidelines_English_12Jun24.pdf"
+        ]
+    },
+    {
+        "query": "What is the cap on lending rate for AIF loans?",
+        "relevant_docs": [
+            "AIF_Guidelines_English_12Jun24.pdf"
+        ]
+    },
+    {
+        "query": "Government schemes for promotion of organic inputs",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "Which scheme supports setting up of soil testing labs?",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "Subsidies for agriculture mechanization and custom hiring centres",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "Schemes for tissue culture labs and disease forecasting units",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "What is the ATMA scheme and its objectives?",
+        "relevant_docs": [
+            "Revised_guidelinesATMA_2025.pdf"
+        ]
+    },
+    {
+        "query": "Role of Block Technology Team (BTT) in ATMA",
+        "relevant_docs": [
+            "Revised_guidelinesATMA_2025.pdf"
+        ]
+    },
+    {
+        "query": "Functions of Farmers Advisory Committees (FAC)",
+        "relevant_docs": [
+            "Revised_guidelinesATMA_2025.pdf"
+        ]
+    },
+    {
+        "query": "Cafeteria of activities eligible under ATMA scheme",
+        "relevant_docs": [
+            "Revised_guidelinesATMA_2025.pdf"
+        ]
+    },
+    {
+        "query": "Convergence of extension activities with other schemes",
+        "relevant_docs": [
+            "Revised_guidelinesATMA_2025.pdf"
+        ]
+    },
+    {
+        "query": "Symptoms and management of Tomato Leaf Curl Virus",
+        "relevant_docs": [
+            "tomato_guide.md"
+        ]
+    },
+    {
+        "query": "Fertilizer dosage for tomato cultivation",
+        "relevant_docs": [
+            "tomato_guide.md"
+        ]
+    },
+    {
+        "query": "Natural farming pest management for Cotton",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "Pest control for Brinjal using natural methods",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "How to grow Red gram using natural farming?",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "Weed management in Groundnut fields",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf",
+            "farmerbook.pdf"
+        ]
+    },
+    {
+        "query": "What is RKVY and what does it fund?",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf",
+            "Revised_guidelinesATMA_2025.pdf"
+        ]
+    },
+    {
+        "query": "Details of Pradhan Mantri Krishi Sinchayi Yojana (PMKSY)",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "How to apply for seed treatment drums subsidy?",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "Assistance for reclaimation of problem soils",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "What is the NMSA scheme?",
+        "relevant_docs": [
+            "GOVERNMENT_SCHEMES_FOR_AGRICULTURE__Revised-26.12.2019.pdf"
+        ]
+    },
+    {
+        "query": "Training module on market-led extension for farmers",
+        "relevant_docs": [
+            "Revised_guidelinesATMA_2025.pdf"
+        ]
+    },
+    {
+        "query": "List of farm tools used in natural farming",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "Preparation of Jeevamrut",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "How to make Beejamrut?",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf"
+        ]
+    },
+    {
+        "query": "Integration of livestock in farming systems",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf",
+            "farmerbook.pdf"
+        ]
+    },
+    {
+        "query": "Post-harvest handling of vegetables",
+        "relevant_docs": [
+            "Technical-Manual-on-Natural_Farming_10.03.2025.pdf",
+            "farmerbook.pdf"
+        ]
+    },
+    {
+        "query": "How to calculate yield per acre?",
+        "relevant_docs": [
+            "Farmers-Guide-to-Conducting-On-Farm-Research.pdf"
+        ]
+    }
+]
